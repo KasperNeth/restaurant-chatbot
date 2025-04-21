@@ -286,6 +286,39 @@
   padding: 30px;
   }
 
+  .payment-button-container {
+    text-align: center;
+    padding: 10px;
+  }
+  
+  .payment-button {
+    background: linear-gradient(135deg, #333 0%, #60ad5e 100%);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 20px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 10px 0;
+    transition: all 0.3s ease;
+  }
+  
+  .payment-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  }
+  
+  .payment-note {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 5px;
+  }
+  
+  .payment-note a {
+    color: #4e6cef;
+    text-decoration: underline;
+  }
+
   @media (max-width: 768px) {
   .chat-container {
     height: 90vh;

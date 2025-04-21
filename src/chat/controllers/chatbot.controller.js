@@ -1,6 +1,6 @@
 const chat = require("../../chat/chatbot"); 
 
-function processMessage(req, res) {
+async function processMessages(req, res) {
 try {
   const { deviceId, message } = req.body;
 
@@ -11,7 +11,13 @@ try {
     });
   }
 
-  const response = chat.processMessage(deviceId, message);
+  const response = await chat.processMessage(deviceId, message);
+
+// Make sure response has a message if it's a payment response
+if (response && response.paymentUrl && !response.message) {
+  response.message = "Redirecting to payment...";
+}
+
   res.json({ success: true, response });
 } catch (error) {
   console.error('Error processing message:', error);
@@ -46,6 +52,6 @@ try {
 }
 
 module.exports = {
-processMessage,
+processMessages,
 startChat,
 };

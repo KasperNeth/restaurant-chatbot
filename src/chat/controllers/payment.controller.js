@@ -1,4 +1,4 @@
-const chat = require('../../chat/chatbot');
+const chat = require("../../chat/chatbot");
 
 async function handleCallback(req, res) {
   try {

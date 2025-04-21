@@ -32,14 +32,17 @@ async function initializePayment(userSession, deviceId) {
 
     return {
       success: true,
+      message: 'Redirecting to payment...', 
       authorizationUrl: response.data.data.authorization_url,
       reference: response.data.data.reference,
+      amount: userSession.orderTotal * 100,  // Include the amount explicitly
       publicKey: PAYSTACK_PUBLIC_KEY 
     };
   } catch (error) {
     console.error('PayStack initialization error:', error.response?.data || error.message);
     return {
       success: false,
+      message: 'Payment initialization failed',
       error: 'Payment initialization failed'
     };
   }

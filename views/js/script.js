@@ -6,28 +6,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const sendButton = document.getElementById('sendButton');
     const quickOptions = document.getElementById('quickOptions');
 
-    // Simulate loading time (you can adjust this as needed)
+
     setTimeout(function() {
-    // Hide loading screen and show main content
+        // Hide loading screen and show main content
     loadingScreen.style.opacity = '0';
     loadingScreen.style.visibility = 'hidden';
     mainContent.style.opacity = '1';
     mainContent.style.visibility = 'visible';
 
-    // Initialize chat after loading screen has completed
-    initializeChat();
-    }, 2500); // 2.5 seconds loading time
+        // Initialize chat after loading screen has completed
+        initializeChat();
+    }, 1500); //1.5 seconds loadinG screen
 
     // Get or generate device ID
     let deviceId = localStorage.getItem('deviceId');
     if (!deviceId) {
-    deviceId = 'device-' + Math.floor(Math.random() * 1000000000);
-    localStorage.setItem('deviceId', deviceId);
+        deviceId = 'device-' + Math.floor(Math.random() * 1000000000);
+        localStorage.setItem('deviceId', deviceId);
     }
 
     function initializeChat() {
-    // Initialize chat
-    startChat();
+        // Initialize chat
+        startChat();
 
     // Check if redirected from payment
     const urlParams = new URLSearchParams(window.location.search);
@@ -77,48 +77,69 @@ fetch(`/api/chat/start?deviceId=${deviceId}`)
 }
 
 function sendMessage() {
-const message = userInput.value.trim();
-if (message === '') return;
+    const message = userInput.value.trim();
+    if (message === '') return;
 
-// Add user message to chat with "you" label
-addMessage(message, 'user');
-userInput.value = '';
+        // Add user message to chat with "you" label
+        addMessage(message, 'user');
+        userInput.value = '';
 
-// Clear quick options
-quickOptions.innerHTML = '';
+        // Clear quick options
+        quickOptions.innerHTML = '';
 
-// Send message to server
-fetch('/api/chat', {
-    method: 'POST',
-    headers: {
+        // Send message to server
+        fetch('/api/chat', {
+        method: 'POST',
+        headers: {
         'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ deviceId, message })
-})
-.then(response => {
-    if (!response.ok) {
+        },
+        body: JSON.stringify({ deviceId, message })
+        })
+        .then(response => {
+        if (!response.ok) {
         throw new Error('Network response was not ok');
-    }
-    return response.json();
-})
-.then(data => {
-    if (data.success) {
-        // Check if this is a payment response
-        if (data.response.paymentUrl) {
-            // Display a message before proceeding with payment
-            addMessage(data.response.message || 'Please complete your payment to place your order.', 'bot');
-            
-            // Then handle the payment process
-            setTimeout(() => {
-                handlePayment(data.response);
-            }, 500);
-        } else {
-            // Regular message response
-            addMessage(data.response.message, 'bot');
-            displayOptions(data.response.options);
         }
+    return response.json();
+    })
+    .then(data => {
+    console.log('Server response:', data); // Debug the entire response
+
+    if (!data.success) {
+    throw new Error(data.message || 'Error in response');
+    }
+
+    // Extract the actual response object from the data
+    let responseObj = data.response;
+
+    if (responseObj && responseObj.response) {
+    responseObj = responseObj.response;
+    }
+
+    // Now check if this is a payment response
+    if (responseObj && responseObj.paymentUrl) {
+    // Add message first
+    if (responseObj.message) {
+        addMessage(responseObj.message, 'bot');
+    }
+        // Add payment URL message
+            // Process payment with slight delay
+            setTimeout(() => {
+              handlePayment(responseObj);
+        }, 100);//
+        } else {
+// Regular message response
+    if (responseObj && responseObj.message) {
+        addMessage(responseObj.message, 'bot');
+    } else if (data.message) {
+        addMessage(data.message, 'bot');
     } else {
-        throw new Error(data.message || 'Unknown error');
+        addMessage('Response received.', 'bot');
+    }
+    
+    // Display options if available
+    if (responseObj && responseObj.options) {
+        displayOptions(responseObj.options);
+    }
     }
 })
 .catch(error => {
@@ -128,7 +149,6 @@ fetch('/api/chat', {
 }
 
 function addMessage(text, sender) {
-// Safety check to ensure text is not undefined
 if (text === undefined || text === null) {
     text = 'No message content';
     console.warn('Attempted to add undefined message');
@@ -137,45 +157,37 @@ if (text === undefined || text === null) {
 const messageDiv = document.createElement('div');
 messageDiv.className = `message ${sender}-message clearfix`;
 
-// Create a container for the entire message group
 const messageContainer = document.createElement('div');
 messageContainer.className = 'message-container';
 
 if (sender === 'user') {
-    // Add "you" label for user messages
     const userLabel = document.createElement('div');
     userLabel.className = 'user-label';
     userLabel.textContent = 'You';
     messageDiv.appendChild(userLabel);
-    
-    // Add content in a separate div
+
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
-    contentDiv.innerHTML = text.toString().replace(/\n/g, '<br>');
+    contentDiv.innerHTML = text.replace(/\n/g, '<br>');
     messageDiv.appendChild(contentDiv);
-} else {
-    // For bot messages
-    messageDiv.innerHTML = text.toString().replace(/\n/g, '<br>');
+    } else {
+    // For bot messages - allow HTML for links and buttons
+messageDiv.innerHTML = text;
 }
 
-// Add timestamp inside the message container
 const timeSpan = document.createElement('span');
 timeSpan.className = `message-time ${sender}-time`;
 timeSpan.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-// Append message and timestamp to container
 messageContainer.appendChild(messageDiv);
 messageContainer.appendChild(timeSpan);
 
-// Add container to chat
 chatMessages.appendChild(messageContainer);
-
-// Scroll to bottom
 chatMessages.scrollTop = chatMessages.scrollHeight;
-}
+    }
 
 function displayOptions(options) {
-if (!options || options.length === 0) return;
+    if (!options || options.length === 0) return;
 
 quickOptions.innerHTML = '';
 
@@ -194,70 +206,81 @@ options.forEach(option => {
     }
     sendMessage();
 });
-
-quickOptions.appendChild(button);
+    quickOptions.appendChild(button);
 });
 }
 
 function handlePayment(paymentData) {
-// Payment data validation with detailed logging
-console.log("Payment data received:", paymentData);
-
-if (!paymentData) {
-    console.error("Payment data is completely missing");
-    addMessage('Error: Payment information is missing. Please try again later.', 'bot');
+    // First add a clear message to notify the user
+    addMessage('Initializing payment process...', 'bot');
+    
+    // Make sure we have all required fields
+    if (!paymentData || !paymentData.publicKey || !paymentData.reference || !paymentData.paymentUrl) {
+        console.error("Invalid payment data:", paymentData);
+        addMessage('Payment information is incomplete. Please try again or contact support.', 'bot');
     return;
 }
 
-if (!paymentData.paymentUrl && !paymentData.publicKey) {
-console.error("Both paymentUrl and publicKey are missing:", paymentData);
-addMessage('Error: Payment information is incomplete. Please try again later.', 'bot');
-return;
+    // Added payment button interface for better frontend experience
+    //it is a simple button that will open the payment gateway in an iframe
+setTimeout(() => {
+    const paymentButtonHtml = `
+        <div style="text-align: center; padding: 15px; background-color: #f8f9fa; border-radius: 10px; margin: 10px 0;">
+            <p style="margin-bottom: 10px;">Your order total: ₦${(paymentData.amount/100).toLocaleString()}</p>
+            <button id="paystackButton" style="background: linear-gradient(135deg, #333 0%, #60ad5e 100%); color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold;">Pay Now</button>
+            <p style="margin-top: 10px; font-size: 0.8rem;">
+                Or <a href="${paymentData.paymentUrl}" target="_blank" style="color: #4e6cef;">click here</a> to pay directly
+            </p>
+        </div>
+    `;
+    
+    addMessage(paymentButtonHtml, 'bot');
+    
+    // Add click event to the payment button
+    setTimeout(() => {
+        const paystackButton = document.getElementById('paystackButton');
+        if (paystackButton) {
+            paystackButton.addEventListener('click', function() {
+                initializePaystackPopup(paymentData);
+            });
+        }
+    }, 100);
+}, 100);
 }
 
-// Use PayStack inline
-if (window.PaystackPop && paymentData.publicKey) {
-try {
-// Ensure we have a valid amount - default to 0 if not available
-const amount = (paymentData.amount && !isNaN(paymentData.amount)) ? 
-                paymentData.amount : 0;
-                
+function initializePaystackPopup(paymentData) {
+    try {
+// Check if PaystackPop is available
+        if (typeof PaystackPop === 'undefined') {
+            console.error("PaystackPop is not defined - the Paystack script may not be loaded");
+            addMessage('Payment system is not available. Please use the direct payment link.', 'bot');
+            return;
+        }
+
+    addMessage('Opening payment gateway...', 'bot');
 
 const handler = PaystackPop.setup({
     key: paymentData.publicKey,
-    email: 'adeoyeokeowo@gmail.com', 
-    amount: amount,
+    email: paymentData.email || "adeoyeokeowo@gmail.com",
+    amount: paymentData.amount,
     currency: 'NGN',
-    ref: paymentData.reference || 'no-reference',
-    callback: function() {
+    ref: paymentData.reference,
+    callback: function(response) {
+        console.log("Payment successful:", response);
+        addMessage('Payment successful! Processing your order...', 'bot');
         window.location.href = '/?payment=success';
     },
     onClose: function() {
+        console.log("Payment window closed");
         addMessage('Payment window closed. Your order is not confirmed yet.', 'bot');
     }
 });
-    
-    // Make sure openIframe is available
-    if (typeof handler.openIframe === 'function') {
+
+        // Open the iframe
         handler.openIframe();
-    } else {
-        console.error("PayStack handler.openIframe is not a function");
-        throw new Error("PayStack initialization error");
-    }
     } catch (error) {
-        console.error('PayStack error:', error);
-        addMessage('There was an error with the payment system. Please try again later.', 'bot');
-    }
-} else if (paymentData.paymentUrl) {
-    // Redirect to payment URL as fallback
-    addMessage('Redirecting to payment page...', 'bot');
-    setTimeout(() => {
-        window.location.href = paymentData.paymentUrl;
-    }, 1000);
-} else {
-    // No payment method available
-    console.error("No viable payment method found in data:", paymentData);
-    addMessage('Sorry, payment processing is currently unavailable. Please try again later.', 'bot');
+        console.error("Error initializing PayStack:", error);
+        addMessage(`Payment initialization failed. Please <a href="${paymentData.paymentUrl}" target="_blank">click here to pay directly</a>.`, 'bot');
 }
-}
-}); 
+  }   
+});

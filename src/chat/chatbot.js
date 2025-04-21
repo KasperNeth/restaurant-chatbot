@@ -196,8 +196,8 @@ return createResponse(
 
 // Handle payment confirmation
 async function handlePaymentConfirmation(deviceId, response) {
-if (response.toLowerCase() === 'yes') {
-  const userSession = session.getSession(deviceId);
+  if (response.toLowerCase() === 'yes') {
+    const userSession = session.getSession(deviceId);
 
   try {
     // Initialize payment with Paystack
@@ -211,20 +211,26 @@ if (response.toLowerCase() === 'yes') {
       );
     }
 
-    return createPaymentResponse(
-      'Redirecting you to payment...',
-      paymentInit.authorizationUrl,
-      paymentInit.reference,
-      paymentInit.publicKey
-    );
+    // Important: Return a properly structured response object
+    return {
+      success: true,
+      response: {
+        message: 'Please complete your payment to place your order.',
+        paymentUrl: paymentInit.authorizationUrl,
+        reference: paymentInit.reference,
+        publicKey: paymentInit.publicKey,
+        amount: userSession.orderTotal * 100,
+        timestamp: new Date().toISOString()
+      },
+    };
   } catch (error) {
     console.error('Payment initialization error:', error);
     session.updateSession(deviceId, { currentState: 'MAIN_MENU' });
     return createResponse(
       'Sorry, there was an issue with payment. Please try again later.',
-      getMainMenuOptions()
-    );
-  }
+    getMainMenuOptions()
+  );
+}
 } else {
   session.updateSession(deviceId, { currentState: 'MAIN_MENU' });
 
@@ -329,16 +335,6 @@ return {
 };
 }
 
-// Create payment response
-function createPaymentResponse(message, paymentUrl, reference, publicKey) {
-return {
-  message,
-  paymentUrl,
-  reference,
-  publicKey,
-  timestamp: new Date().toISOString(),
-};
-}
 
 // Get welcome message
 function getMainMenuResponse() {
