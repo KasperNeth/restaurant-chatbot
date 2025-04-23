@@ -26,21 +26,43 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function initializeChat() {
-        // Initialize chat
-        startChat();
+        // Check if redirected from payment first
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentStatus = urlParams.get('payment');
+        const paymentRef = urlParams.get('ref');
 
-    // Check if redirected from payment
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentStatus = urlParams.get('payment');
-
-    if (paymentStatus === 'success') {
-        setTimeout(() => {
-            addMessage('Thank you! Your payment was successful and your order has been placed.', 'bot');
-        }, 1000);
+if (paymentStatus === 'success') {
+    setTimeout(() => {
+        if (paymentRef) {
+            // Make an explicit call to ensure the payment is processed
+            fetch(`/api/payment/callback?deviceId=${deviceId}&reference=${paymentRef}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-device-id': deviceId
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Payment completion verified:", data);
+            })
+                    .catch(err => {
+                        console.error("Error verifying payment completion:", err);
+                    });
+                }
+                
+                addMessage('Thank you! Your payment was successful and your order has been placed.', 'bot');
+                displayOptions(getMainMenuOptions());
+            }, 1000);
     } else if (paymentStatus === 'failed') {
         setTimeout(() => {
             addMessage('Unfortunately, there was an issue with your payment. Please try again.', 'bot');
+            displayOptions(getMainMenuOptions());
         }, 1000);
+    }else{
+        // Initialize chat
+        startChat();
+
     }
 
     // Event listeners
@@ -50,6 +72,18 @@ document.addEventListener('DOMContentLoaded', function() {
             sendMessage();
         }
     });
+    }
+
+    //Helper function to get main menu options directly in the frontend
+// instead of having to make an API call just to get the options after payment
+function getMainMenuOptions() {
+    return [
+        '1 - Place an order',
+        '98 - See order history',
+        '97 - See current order',
+        '96 - Schedule an order',
+        '0 - Cancel order',
+    ];
     }
 
 // Functions
@@ -70,8 +104,7 @@ fetch(`/api/chat/start?deviceId=${deviceId}`)
         throw new Error(data.message || 'Unknown error');
     }
 })
-.catch(error => {
-    console.error('Error starting chat:', error);
+.catch(err => {
     addMessage('Sorry, there was an error connecting to the chat service.', 'bot');
 });
 }
@@ -102,8 +135,7 @@ function sendMessage() {
     return response.json();
     })
     .then(data => {
-    console.log('Server response:', data); // Debug the entire response
-
+    
     if (!data.success) {
     throw new Error(data.message || 'Error in response');
     }
@@ -142,8 +174,7 @@ function sendMessage() {
     }
     }
 })
-.catch(error => {
-    console.error('Error sending message:', error);
+.catch(err => {
     addMessage('Sorry, there was an error processing your message.', 'bot');
 });
 }
@@ -216,9 +247,8 @@ function handlePayment(paymentData) {
     
     // Make sure we have all required fields
     if (!paymentData || !paymentData.publicKey || !paymentData.reference || !paymentData.paymentUrl) {
-        console.error("Invalid payment data:", paymentData);
         addMessage('Payment information is incomplete. Please try again or contact support.', 'bot');
-    return;
+        return;
 }
 
     // Added payment button interface for better frontend experience
@@ -231,6 +261,9 @@ setTimeout(() => {
             <p style="margin-top: 10px; font-size: 0.8rem;">
                 Or <a href="${paymentData.paymentUrl}" target="_blank" style="color: #4e6cef;">click here</a> to pay directly
             </p>
+             <p style="margin-top: 5px; font-size: 0.8rem;">
+                    Reference: ${paymentData.reference}
+                </p>
         </div>
     `;
     
@@ -239,20 +272,31 @@ setTimeout(() => {
     // Add click event to the payment button
     setTimeout(() => {
         const paystackButton = document.getElementById('paystackButton');
+        const directPaymentLink = document.getElementById('directPaymentLink');
+        
         if (paystackButton) {
             paystackButton.addEventListener('click', function() {
                 initializePaystackPopup(paymentData);
             });
         }
+        
+        if (directPaymentLink) {
+            directPaymentLink.addEventListener('click', function() {
+                // Use the same handler but with a flag to indicate direct payment
+                localStorage.setItem('paymentMethod', 'direct');
+                // Open the payment URL in a new tab
+                window.open(paymentData.paymentUrl, '_blank');
+                // Display message to user
+                addMessage('Payment page opened in a new tab. Please complete your payment there.', 'bot');
+            });
+        }
     }, 100);
-}, 100);
+}, 1000);
 }
-
 function initializePaystackPopup(paymentData) {
     try {
 // Check if PaystackPop is available
         if (typeof PaystackPop === 'undefined') {
-            console.error("PaystackPop is not defined - the Paystack script may not be loaded");
             addMessage('Payment system is not available. Please use the direct payment link.', 'bot');
             return;
         }
@@ -265,13 +309,13 @@ const handler = PaystackPop.setup({
     amount: paymentData.amount,
     currency: 'NGN',
     ref: paymentData.reference,
-    callback: function(response) {
-        console.log("Payment successful:", response);
+    callback: function() {
+        // Save reference to localStorage to help with state persistence
+        localStorage.setItem('lastPaymentReference', paymentData.reference);
         addMessage('Payment successful! Processing your order...', 'bot');
         window.location.href = '/?payment=success';
     },
     onClose: function() {
-        console.log("Payment window closed");
         addMessage('Payment window closed. Your order is not confirmed yet.', 'bot');
     }
 });
@@ -279,7 +323,6 @@ const handler = PaystackPop.setup({
         // Open the iframe
         handler.openIframe();
     } catch (error) {
-        console.error("Error initializing PayStack:", error);
         addMessage(`Payment initialization failed. Please <a href="${paymentData.paymentUrl}" target="_blank">click here to pay directly</a>.`, 'bot');
 }
   }   

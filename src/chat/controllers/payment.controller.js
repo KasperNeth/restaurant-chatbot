@@ -9,14 +9,19 @@ async function handleCallback(req, res) {
       return res.redirect('/?payment=failed');
     }
 
-    await chat.handlePaymentCallback(
+    // Process the payment and complete the order
+    const result = await chat.handlePaymentCallback(
       deviceId,
       reference,
       'success'
     );
 
     // Store success in query param instead of using session
-    res.redirect('/?payment=success');
+    if (!result.success) {
+      return res.redirect('/?payment=failed');
+    }else{
+      res.redirect(`/?payment=success&ref=${reference}`);
+    }
   } catch (error) {
     console.error('Error handling payment callback:', error);
     res.redirect('/?payment=failed');

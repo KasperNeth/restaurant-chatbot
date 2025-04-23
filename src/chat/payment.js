@@ -65,7 +65,7 @@ async function verifyPayment(reference) {
       data: response.data.data
     };
   } catch (error) {
-    console.error('PayStack verification error:', error.response?.data || error.message);
+    
     return {
       success: false,
       error: 'Payment verification failed'

@@ -20,7 +20,6 @@ if (response && response.paymentUrl && !response.message) {
 
   res.json({ success: true, response });
 } catch (error) {
-  console.error('Error processing message:', error);
   res.status(500).json({
     success: false,
     message: 'Error processing your message',
@@ -43,7 +42,6 @@ try {
   const response = chat.getMainMenuResponse();
   res.json({ success: true, response });
 } catch (error) {
-  console.error('Error starting chat:', error);
   res.status(500).json({
     success: false,
     message: 'Error starting chat session',

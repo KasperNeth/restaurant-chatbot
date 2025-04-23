@@ -22,6 +22,10 @@ if (typeof userInput === 'string') {
     // See current order - always handle via main menu logic
     return handleMainMenu(deviceId, 97, true);
   }
+  else if (/^96$/.test(userInput.trim()) || userInput === 96) {
+    // See current order - always handle via main menu logic
+    return handleMainMenu(deviceId, 96, true);
+  }
   else if (/^0$/.test(userInput.trim()) || userInput === 0) {
     // Cancel order - always handle via main menu logic
     return handleMainMenu(deviceId, 0, true);
@@ -72,10 +76,10 @@ switch (state) {
 }
 
 // Handle main menu options
-function handleMainMenu(deviceId, option, isValidNumber) {
+function handleMainMenu(deviceId, option,) {
 const userSession = session.getSession(deviceId);
 
-// Handle special options first (regardless of type)
+// Handle special options first - regardless of type
 if (option === 99 || option === '99') {
   // Checkout order
   if (userSession.currentOrder.length === 0) {
@@ -91,6 +95,25 @@ if (option === 99 || option === '99') {
     ['Yes', 'No (Return to main menu)']
   );
 } 
+//add scheduling option button to main menu
+if (option === 96 || option === '96') {
+  // Check if they have items in their order first
+  if (userSession.currentOrder.length === 0) {
+    return createResponse(
+      'You need to add items to your order before scheduling. Would you like to place an order first?',
+      ['1 - Place an order', 'Return to main menu']
+    );
+  }
+  
+  // Move to scheduling state
+  session.updateSession(deviceId, { currentState: 'SCHEDULING_ORDER' });
+  return createResponse(
+    'When would you like your order to be ready? Please enter a date and time in the format YYYY-MM-DD HH:MM',
+    ['Example: 2025-04-25 18:30', 'Cancel (Return to main menu)']
+  );
+}
+
+
 else if (option === 98 || option === '98') {
   // See order history
   return createResponse(
@@ -189,6 +212,7 @@ return createResponse(
     ...getMenuOptions(),
     '99 - Proceed to checkout',
     '97 - View current order',
+    '96 - Schedule an order', 
     '0 - Cancel order',
   ]
 );
@@ -211,7 +235,7 @@ async function handlePaymentConfirmation(deviceId, response) {
       );
     }
 
-    // Important: Return a properly structured response object
+    //Return a properly structured response object
     return {
       success: true,
       response: {
@@ -224,7 +248,7 @@ async function handlePaymentConfirmation(deviceId, response) {
       },
     };
   } catch (error) {
-    console.error('Payment initialization error:', error);
+
     session.updateSession(deviceId, { currentState: 'MAIN_MENU' });
     return createResponse(
       'Sorry, there was an issue with payment. Please try again later.',
@@ -243,13 +267,13 @@ async function handlePaymentConfirmation(deviceId, response) {
 
 // Handle payment callback from Paystack
 async function handlePaymentCallback(deviceId, reference, status) {
-if (status !== 'success') {
-  session.updateSession(deviceId, { currentState: 'MAIN_MENU' });
-  return createResponse(
-    'Your payment was not successful. Please try again or choose another payment method.',
-    getMainMenuOptions()
-  );
-}
+    if (status !== 'success') {
+      session.updateSession(deviceId, { currentState: 'MAIN_MENU' });
+      return createResponse(
+        'Your payment was not successful. Please try again or choose another payment method.',
+        getMainMenuOptions()
+      );
+    }
 
 try {
   // Verify payment
@@ -307,6 +331,7 @@ return createResponse(
 function getMainMenuOptions() {
 return [
   '1 - Place an order',
+  '96 - Schedule an order', 
   '99 - Checkout order',
   '98 - See order history',
   '97 - See current order',

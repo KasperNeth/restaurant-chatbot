@@ -30,7 +30,6 @@ function updateSession(deviceId, updates) {
   Object.assign(sessions[deviceId], updates, {
     lastInteraction: Date.now()
   });
-  
   return sessions[deviceId];
 }
 
@@ -67,24 +66,42 @@ function cancelOrder(deviceId) {
 function completeOrder(deviceId, paymentReference) {
   const session = getSession(deviceId);
   
-  // Create completed order record
+  // Skip if there's no current order
+  if (!session.currentOrder || session.currentOrder.length === 0) {
+    console.warn(`No items to complete order for device ${deviceId}`);
+    return session;
+  }
+
+  console.log(`Completing order for device ${deviceId} with ${session.currentOrder.length} items`);
+  
+  // Create a new Date object
+  const orderDate = new Date();
+  
+  // Create completed order record with deep copy of current order
   const completedOrder = {
     orderId: generateOrderId(),
-    items: [...session.currentOrder],
+    items: JSON.parse(JSON.stringify(session.currentOrder)),
     total: session.orderTotal,
-    date: new Date(),
+    date: orderDate,
+    dateStr: orderDate.toLocaleDateString(),
     paymentReference
   };
   
-  // Add to history and clear current
-  const orderHistory = [...session.orderHistory, completedOrder];
+  // Initialize history array if it doesn't exist
+  if (!session.orderHistory) {
+    session.orderHistory = [];
+  }
   
-  return updateSession(deviceId, {
-    orderHistory,
+  // Add the completed order to history
+  session.orderHistory.push(completedOrder);
+  
+  // Reset current order and update session
+  const updatedSession = updateSession(deviceId, {
     currentOrder: [],
     orderTotal: 0,
     currentState: "MAIN_MENU"
   });
+  return updatedSession; 
 }
 
 function scheduleOrder(deviceId, scheduledTime) {
@@ -95,12 +112,12 @@ function scheduleOrder(deviceId, scheduledTime) {
     orderId: generateOrderId(),
     items: [...session.currentOrder],
     total: session.orderTotal,
-    scheduledFor: scheduledTime,
+    scheduledForStr: scheduledTime.toLocaleString(), 
     created: new Date()
   };
   
   // Add to scheduled orders and clear current
-  const scheduledOrders = [...session.scheduledOrders, scheduledOrder];
+  const scheduledOrders = [...(session.scheduledOrders || []), scheduledOrder];
   
   return updateSession(deviceId, {
     scheduledOrders,
@@ -113,7 +130,7 @@ function scheduleOrder(deviceId, scheduledTime) {
 function formatCurrentOrder(deviceId) {
   const session = getSession(deviceId);
   
-  if (session.currentOrder.length === 0) {
+  if (!session.currentOrder || session.currentOrder.length === 0) {
     return "Your current order is empty.";
   }
   
@@ -130,14 +147,16 @@ function formatCurrentOrder(deviceId) {
 function formatOrderHistory(deviceId) {
   const session = getSession(deviceId);
   
-  if (session.orderHistory.length === 0) {
+  if (!session.orderHistory || session.orderHistory.length === 0) {
     return "You have no order history yet.";
   }
   
   let result = "Your order history:\n\n";
   
   session.orderHistory.forEach((order) => {
-    result += `Order #${order.orderId} (${order.date.toLocaleDateString()}):\n`;
+
+    const dateDisplay = order.dateStr || (order.date ? order.date.toLocaleDateString() : "Unknown date");
+    result += `Order #${order.orderId} (${dateDisplay}):\n`;
     
     order.items.forEach(item => {
       result += `- ${item.quantity}× ${item.name} - ₦${item.total}\n`;
